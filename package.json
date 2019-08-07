@@ -1,0 +1,19 @@
+{
+  "name": "fetch-tesla-token",
+  "version": "1.0.0",
+  "description": "Super simple proxy for fetching Tesla API tokens",
+  "main": "authproxy.js",
+  "scripts": {
+    "start": "node authproxy.js"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/fredli74/fetch-tesla-token.git"
+  },
+  "author": "Fredrik Lidström",
+  "license": "MIT",
+  "bugs": {
+    "url": "https://github.com/fredli74/fetch-tesla-token/issues"
+  },
+  "homepage": "https://github.com/fredli74/fetch-tesla-token#readme"
+}
