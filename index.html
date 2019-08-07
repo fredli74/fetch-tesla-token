@@ -129,6 +129,10 @@
 		}
 	});
 	elForm.addEventListener("submit", (e) => {
+		elAccessToken.innerHTML = "";
+		elRefreshToken.innerHTML = "";
+		elError.innerHTML = "";
+
 		fetch("/proxy", {
 			method: "POST",
 			headers: { "Content-Type": "application/json" },

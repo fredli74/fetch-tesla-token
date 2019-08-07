@@ -2,9 +2,9 @@
   "name": "fetch-tesla-token",
   "version": "1.0.0",
   "description": "Super simple proxy for fetching Tesla API tokens",
-  "main": "authproxy.js",
+  "main": "server.js",
   "scripts": {
-    "start": "node authproxy.js"
+    "start": "node server.js"
   },
   "repository": {
     "type": "git",
@@ -15,5 +15,6 @@
   "bugs": {
     "url": "https://github.com/fredli74/fetch-tesla-token/issues"
   },
-  "homepage": "https://github.com/fredli74/fetch-tesla-token#readme"
+  "homepage": "https://github.com/fredli74/fetch-tesla-token#readme",
+  "dependencies": {}
 }
