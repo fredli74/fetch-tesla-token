@@ -116,9 +116,9 @@
 
   <form id="form" action="" method="POST">
     <label for="email">Tesla Account Email</label>
-    <input id="email" placeholder="email">
+    <input type="email" id="email" autocomplete="email" placeholder="email">
     <label for="password">Password</label>
-    <input type="password" id="password" placeholder="password">
+    <input type="password" id="password" autocomplete="off" placeholder="password">
     <button type="submit" id="authenticate">authenticate</button>
   </form>
   <div id="accesstoken" class="token"></div>
