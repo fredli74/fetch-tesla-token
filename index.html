@@ -2,158 +2,175 @@
 <html lang="en">
 
 <head>
-	<meta charset="utf-8">
-	<title>Tesla API token fetcher</title>
+  <meta charset="utf-8">
+  <title>Tesla API token fetcher</title>
 </head>
 
 <style>
-		body {
-		font: 200 1em sans-serif;
-		color: #1b1919;
-		background-color: #fdfdfd;
-		max-width: 800px;
-		margin: 0 auto;
-		padding: 0 1em;
-	}
+  body {
+    font: 200 1em sans-serif;
+    color: #1b1919;
+    background-color: #fdfdfd;
+    max-width: 800px;
+    margin: 0 auto;
+    padding: 0 1em;
+  }
 
-	body,
-	input {
-		text-align: center;
-	}
+  body,
+  input {
+    text-align: center;
+  }
 
-	p,
-	li {
-		text-align: left;
-		margin-bottom: 0.2em;
-	}
+  p,
+  li {
+    text-align: left;
+    margin-bottom: 0.2em;
+  }
 
-	form,
-	button,
-	.token {
-		margin-bottom: 1em;
-	}
+  form,
+  button,
+  .token {
+    margin-bottom: 1em;
+  }
 
-	ul {
-		list-style-type: circle;
-		list-style-position: inside;
-		padding: 0;
-	}
+  ul {
+    list-style-type: circle;
+    list-style-position: inside;
+    padding: 0;
+  }
 
-	button {
-		background: #4747ad;
-		border: none;
-		color: white;
-		padding: 0.4em;
-		width: 150px;
-		font-size: 17px;
-	}
+  button {
+    background: #4747ad;
+    border: none;
+    color: white;
+    padding: 0.4em;
+    width: 150px;
+    font-size: 17px;
+  }
 
-	button:hover {
-		background: #7676de;
-	}
+  button:hover {
+    background: #7676de;
+  }
 
-	button:active {
-		background: #212161;
-	}
+  button:active {
+    background: #212161;
+  }
 
-	input {
-		display: block;
-		width: 400px;
-		font-size: 1em;
-		padding: 0.2em;
-		margin: 0.2em auto 1em;
-	}
+  input {
+    display: block;
+    width: 400px;
+    font-size: 1em;
+    padding: 0.2em;
+    margin: 0.2em auto 1em;
+  }
 
-    .token span {
-        font-size: 0.9em;
-    }
-    
-	.token input {
-		width: 90%;
-		font: 600 1.2em monospace;
-		padding: 0.6em;
-	}
+  .token {
+    position: relative;
+  }
+  .token span {
+    font-size: 0.9em;
+  }
+  .token input {
+    width: 90%;
+    font: 600 1.2em monospace;
+    padding: 0.6em;
+  }
+  .copybtn {
+    margin: 0 4% 0 0;
+    padding: 0.2em 1em;
+    width: auto;
+    position: absolute;
+    right: 0;
+    top: 0;
+    font-size: 0.9em;
+  }
 
-	#error>div {
-		display: block;
-		margin: 2em;
-		border: 2px solid #e4d4cd;
-		background-color: #f5ede7;
-		padding: 1em;
-		color: #a93600;
-	}
+  #error>div {
+    display: block;
+    margin: 2em;
+    border: 2px solid #e4d4cd;
+    background-color: #f5ede7;
+    padding: 1em;
+    color: #a93600;
+  }
 </style>
 
 <body>
-	<h1>Tesla API token fetcher</h1>
-	<p>This is a super simple node.js server for authenticating with the Tesla API to obtain access and refresh tokens</p>
-	<p><strong>Why a server?</strong>
-		The Tesla API was not intended for direct use in browsers and <a
-			href="https://developer.mozilla.org/en-US/docs/Web/HTTP/CORS">CORS</a> is preventing it. The server acts as a
-		simple proxy to bypass this without storing any information.</p>
-	<p><strong>Is it safe?</strong>
-		Yes. But don't just trust my word, verify!
-		<ul>
-			<li>It's open source</li>
-			<li>Download and run locally</li>
-			<li>Server only using node.js standard library (no node_modules needed)</li>
-			<li>Client is single html file (no third-party browser libraries)</li>
-			<li>Super small code base, review it all in minutes</li>
-		</ul>
-	</p>
+  <h1>Tesla API token fetcher</h1>
+  <p>This is a super simple node.js server for authenticating with the Tesla API to obtain access and refresh tokens</p>
+  <p><strong>Why a server?</strong>
+    The Tesla API was not intended for direct use in browsers and <a
+      href="https://developer.mozilla.org/en-US/docs/Web/HTTP/CORS">CORS</a> is preventing it. The server acts as a
+    simple proxy to bypass this without storing any information.</p>
+  <p><strong>Is it safe?</strong>
+    Yes. But don't just trust my word, verify!
+    <ul>
+      <li>It's open source</li>
+      <li>Download and run locally</li>
+      <li>Server only using node.js standard library (no node_modules needed)</li>
+      <li>Client is single html file (no third-party browser libraries)</li>
+      <li>Super small code base, review it all in minutes</li>
+    </ul>
+  </p>
 
-	<form id="form" action="" method="POST">
-		<label for="email">Tesla Account Email</label>
-		<input id="email" placeholder="email">
-		<label for="password">Password</label>
-		<input type="password" id="password" placeholder="password">
-		<button type="submit" id="authenticate">authenticate</button>
-	</form>
-	<div id="accesstoken" class="token"></div>
-	<div id="refreshtoken" class="token"></div>
-	<div id="error"></div>
+  <form id="form" action="" method="POST">
+    <label for="email">Tesla Account Email</label>
+    <input id="email" placeholder="email">
+    <label for="password">Password</label>
+    <input type="password" id="password" placeholder="password">
+    <button type="submit" id="authenticate">authenticate</button>
+  </form>
+  <div id="accesstoken" class="token"></div>
+  <div id="refreshtoken" class="token"></div>
+  <div id="error"></div>
 </body>
 
 <script>
-	const elAccessToken = document.getElementById("accesstoken");
-	const elRefreshToken = document.getElementById("refreshtoken");
-	const elError = document.getElementById("error");
-	const elForm = document.getElementById("form");
-	const elEmail = document.getElementById("email");
-	const elPassword = document.getElementById("password");
+  const elAccessToken = document.getElementById("accesstoken");
+  const elRefreshToken = document.getElementById("refreshtoken");
+  const elError = document.getElementById("error");
+  const elForm = document.getElementById("form");
+  const elEmail = document.getElementById("email");
+  const elPassword = document.getElementById("password");
 
-	elEmail.addEventListener("keypress", (e) => {
-		if (e.keyCode === 13) {
-			elPassword.focus();
-			e.preventDefault();
-		}
-	});
-	elForm.addEventListener("submit", (e) => {
-		elAccessToken.innerHTML = "";
-		elRefreshToken.innerHTML = "";
-		elError.innerHTML = "";
+  elEmail.addEventListener("keypress", (e) => {
+    if (e.keyCode === 13) {
+      elPassword.focus();
+      e.preventDefault();
+    }
+  });
+  elForm.addEventListener("submit", (e) => {
+    elAccessToken.innerHTML = "";
+    elRefreshToken.innerHTML = "";
+    elError.innerHTML = "";
 
-		fetch("/proxy", {
-			method: "POST",
-			headers: { "Content-Type": "application/json" },
-			body: JSON.stringify({ email: elEmail.value, password: elPassword.value }),
-		}).then((response) => {
-			if (!response.ok) {
-				elPassword.value = "";
-				elPassword.focus();
-				throw new Error('Invalid authentication')
-			}
-			return response.json();
-		}).then(function (data) {
-			if (location.hash !== "#refresh_token") {
-				elAccessToken.innerHTML = `<span>Access Token</span><input readonly value="${data.access_token}">`;
-			}
-			elRefreshToken.innerHTML = `<span>Refresh Token</span><input readonly value="${data.refresh_token}">`;
-		}).catch(error => {
-			elError.innerHTML = `<div>${error}</div>`;
-		})
-		e.preventDefault();
-	});
+    fetch("/proxy", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ email: elEmail.value, password: elPassword.value }),
+    }).then((response) => {
+      if (!response.ok) {
+        elPassword.value = "";
+        elPassword.focus();
+        throw new Error('Invalid authentication')
+      }
+      return response.json();
+    }).then(function (data) {
+      if (location.hash !== "#refresh_token") {
+        elAccessToken.innerHTML = `<span>Access Token <button class="copybtn" onclick="copy('accessInput')">copy</button></span><input id="accessInput" readonly value="${data.access_token}">`;
+      }
+      elRefreshToken.innerHTML = `<span>Refresh Token <button class="copybtn" onclick="copy('refreshInput')">copy</button></span><input id="refreshInput" readonly value="${data.refresh_token}">`;
+    }).catch(error => {
+      elError.innerHTML = `<div>${error}</div>`;
+    })
+    e.preventDefault();
+  });
+  function copy(id) {
+    const el = document.getElementById(id);
+    el.select();
+    el.setSelectionRange(0, 99999)
+    document.execCommand("copy");
+  }
 </script>
 <noscript style="color:red">Your browser does not support JavaScript!</noscript>
 
