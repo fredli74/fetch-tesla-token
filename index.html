@@ -150,7 +150,9 @@
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ email: elEmail.value, password: elPassword.value }),
     }).then((response) => {
-      if (!response.ok) {
+      if (response.status === 502) {
+        throw new Error('Unable to connect to Tesla API endpoint')
+      } else if (!response.ok) {
         elPassword.value = "";
         elPassword.focus();
         throw new Error('Invalid authentication')
