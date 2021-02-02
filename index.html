@@ -173,7 +173,7 @@
     }).then((response) => {
       if (!response.ok) {
         resetForm();
-        throw new Error(response.statusText || 'Unknown error from server')
+        throw new Error(response.headers.get("X-Error") || 'Unknown error from server')
       }
       return response.json();
     }).then(function (data) {
