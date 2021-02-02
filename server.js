@@ -18,10 +18,10 @@ http
 
           try {
             const payload = await proxy.handler({ body: inputBody }, {});
-            response.writeHead(payload.statusCode, payload.headers);
+            response.writeHead(payload.statusCode, payload.statusMessage, payload.headers);
             response.write(payload.body);
           } catch (e) {
-            response.writeHead(500, e, { "X-ERROR": e });
+            response.writeHead(500);
             response.write(JSON.stringify(e));
           }
           response.end();
@@ -43,8 +43,8 @@ http
           response.end();
         }
       })
-      .on("error", (e) => {
-        response.writeHead(500, e, { "X-ERROR": e });
+      .on("error", () => {
+        response.writeHead(500);
         response.end();
       });
   })

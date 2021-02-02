@@ -37,6 +37,7 @@ function request(opt, data) {
       res.on("end", () => {
         resolve({
           statusCode: res.statusCode || 200,
+          statusMessage: res.statusMessage,
           headers: res.headers,
           body: body
         });
@@ -184,6 +185,7 @@ exports.handler = async function (event, context) {
         // Return a mix of bearer and api access tokens
         return {
           statusCode: res.statusCode,
+          statusMessage: res.statusMessage,
           headers: res.headers,
           body: JSON.stringify({
             auth: bearerToken,
@@ -196,6 +198,10 @@ exports.handler = async function (event, context) {
     }
   } catch (err) {
     console.error(err);
-    throw err;
+    return {
+      statusCode: 500,
+      statusMessage: err,
+      body: err
+    }
   }
 }
