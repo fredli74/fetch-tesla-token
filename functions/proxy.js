@@ -129,6 +129,8 @@ exports.handler = async function (event, context) {
       } else if (res.statusCode === 302) {
         redirectURL = res.headers.location;
       } else {
+        console.debug("Login form failed");
+        console.debug(res);
         return res;
       }
     }
@@ -161,6 +163,8 @@ exports.handler = async function (event, context) {
       if (res.statusCode === 200) {
         bearerToken = JSON.parse(res.body);
       } else {
+        console.debug("Error fetching login token");
+        console.debug(res);
         return res;
       }
     }
@@ -191,6 +195,8 @@ exports.handler = async function (event, context) {
           })
         };
       } else {
+        console.debug("Error fetching API token");
+        console.debug(res);
         return res;
       }
     }
