@@ -3,7 +3,7 @@
 
 <head>
   <meta charset="utf-8">
-  <title>Tesla API token fetcher</title>
+  <title>Tesla Auth token fetcher</title>
 </head>
 
 <style>
@@ -67,14 +67,27 @@
   .token {
     position: relative;
   }
+
   .token span {
     font-size: 0.9em;
   }
+
   .token input {
     width: 90%;
     font: 600 1.2em monospace;
     padding: 0.6em;
   }
+
+  .token textarea {
+    display: block;
+    width: 90%;
+    height: 12em;
+    margin: 0.2em auto 1em;
+    font: 600 0.9em monospace;
+    white-space: normal;
+    word-break: break-all;
+  }
+
   .copybtn {
     margin: 0 4% 0 0;
     padding: 0.2em 1em;
@@ -96,43 +109,50 @@
 </style>
 
 <body>
-  <h1>Tesla API token fetcher</h1>
-  <p>This is a super simple node.js server for authenticating with the Tesla API to obtain access and refresh tokens</p>
+  <h1>Tesla Auth token fetcher</h1>
+  <p>This is a simple node.js server for authenticating with the Tesla servers to obtain access and
+    refresh bearer tokens, as well as owner-api access tokens.</p>
   <p><strong>Why a server?</strong>
     The Tesla API was not intended for direct use in browsers and <a
       href="https://developer.mozilla.org/en-US/docs/Web/HTTP/CORS">CORS</a> is preventing it. The server acts as a
     simple proxy to bypass this without storing any information.</p>
   <p><strong>Is it safe?</strong>
     Yes. But don't just trust my word, verify!
-    <ul>
-      <li>It's open source (<a href="https://github.com/fredli74/fetch-tesla-token">GitHub</a>)</li>
-      <li>Download and run locally</li>
-      <li>Server only using node.js standard library (no node_modules needed)</li>
-      <li>Client is single html file (no third-party browser libraries)</li>
-      <li>Super small code base, review it all in minutes</li>
-      <li>... or just simply curl your token! (<a href="https://gist.github.com/fredli74/67b9f4a72705dd0644e0eeadc6e4c91f">GitHub Gist</a>)</li>
-    </ul>
+  <ul>
+    <li>It's open source (<a href="https://github.com/fredli74/fetch-tesla-token">GitHub</a>)</li>
+    <li>Download and run locally</li>
+    <li>Server only using node.js standard library (no node_modules needed)</li>
+    <li>Client is single html file (no third-party browser libraries)</li>
+    <li>Small code base, review it all in minutes</li>
+  </ul>
   </p>
 
   <form id="form" action="" method="POST">
     <label for="email">Tesla Account Email</label>
-    <input type="email" id="email" autocomplete="email" placeholder="email">
+    <input type="email" id="email" autocomplete="email" placeholder="email" required>
     <label for="password">Password</label>
-    <input type="password" id="password" autocomplete="off" placeholder="password">
+    <input type="password" id="password" autocomplete="off" placeholder="password" required>
     <button type="submit" id="authenticate">authenticate</button>
   </form>
   <div id="accesstoken" class="token"></div>
   <div id="refreshtoken" class="token"></div>
+  <div id="apitoken" class="token"></div>
   <div id="error"></div>
 </body>
 
 <script>
   const elAccessToken = document.getElementById("accesstoken");
   const elRefreshToken = document.getElementById("refreshtoken");
+  const elApiToken = document.getElementById("apitoken");
   const elError = document.getElementById("error");
   const elForm = document.getElementById("form");
   const elEmail = document.getElementById("email");
   const elPassword = document.getElementById("password");
+
+  function resetForm() {
+    elPassword.value = "";
+    elPassword.focus();
+  }
 
   elEmail.addEventListener("keypress", (e) => {
     if (e.keyCode === 13) {
@@ -143,6 +163,7 @@
   elForm.addEventListener("submit", (e) => {
     elAccessToken.innerHTML = "";
     elRefreshToken.innerHTML = "";
+    elApiToken.innerHTML = "";
     elError.innerHTML = "";
 
     fetch("/proxy", {
@@ -153,16 +174,17 @@
       if (response.status === 502) {
         throw new Error('Unable to connect to Tesla API endpoint')
       } else if (!response.ok) {
-        elPassword.value = "";
-        elPassword.focus();
-        throw new Error('Invalid authentication')
+        resetForm();
+        throw new Error(response.statusText || 'Invalid authentication')
       }
       return response.json();
     }).then(function (data) {
+      resetForm();
       if (location.hash !== "#refresh_token") {
-        elAccessToken.innerHTML = `<span>Access Token <button class="copybtn" onclick="copy('accessInput')">copy</button></span><input id="accessInput" readonly value="${data.access_token}">`;
+        elAccessToken.innerHTML = `<span>Access Token <button class="copybtn" onclick="copy('accessArea')">copy</button></span><textarea id="accessArea" readonly>${data.auth.access_token}</textarea>`;
+        elApiToken.innerHTML = `<span>Owner-API Token <button class="copybtn" onclick="copy('apiInput')">copy</button></span><input id="apiInput" readonly value="${data.owner_api.access_token}">`;
       }
-      elRefreshToken.innerHTML = `<span>Refresh Token <button class="copybtn" onclick="copy('refreshInput')">copy</button></span><input id="refreshInput" readonly value="${data.refresh_token}">`;
+      elRefreshToken.innerHTML = `<span>Refresh Token <button class="copybtn" onclick="copy('refreshArea')">copy</button></span><textarea id="refreshArea" readonly>${data.auth.refresh_token}</textarea>`;
     }).catch(error => {
       elError.innerHTML = `<div>${error}</div>`;
     })

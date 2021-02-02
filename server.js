@@ -8,19 +8,23 @@ const PORT = Number(process.env["LISTEN_PORT"]) || 15198;
 const HOSTNAME = Number(process.env["LISTEN_HOST"]) || "";
 
 http
-  .createServer(function(request, response) {
+  .createServer(function (request, response) {
     let inputBody = "";
     request
       .on("data", chunk => (inputBody += chunk))
-      .on("end", () => {
+      .on("end", async () => {
         if (request.url === "/proxy") {
           /** Tesla API Proxy **/
 
-          proxy.handler({ body:inputBody }, {}, (error, payload) => {
+          try {
+            const payload = await proxy.handler({ body: inputBody }, {});
             response.writeHead(payload.statusCode, payload.headers);
             response.write(payload.body);
-            response.end();
-          }); 
+          } catch (e) {
+            response.writeHead(500, e, { "X-ERROR": e });
+            response.write(JSON.stringify(e));
+          }
+          response.end();
 
         } else if (request.url === "/") {
           /** HTML page **/
@@ -39,8 +43,8 @@ http
           response.end();
         }
       })
-      .on("error", () => {
-        response.writeHead(500);
+      .on("error", (e) => {
+        response.writeHead(500, e, { "X-ERROR": e });
         response.end();
       });
   })
