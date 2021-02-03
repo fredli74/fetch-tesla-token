@@ -1,5 +1,12 @@
 #!/usr/bin/env node
 
+/**
+ * @file Server for local use
+ * @author Fredrik Lidström
+ * @copyright 2021 Fredrik Lidström
+ * @license MIT (MIT)
+*/
+
 const http = require("http");
 const fs = require("fs");
 const proxy = require("./functions/proxy");
@@ -16,14 +23,10 @@ http
         if (request.url === "/proxy") {
           /** Tesla API Proxy **/
 
-          try {
-            const payload = await proxy.handler({ body: inputBody }, {});
-            response.writeHead(payload.statusCode, payload.headers);
-            response.write(payload.body);
-          } catch (e) {
-            response.writeHead(500);
-            response.write(JSON.stringify(e));
-          }
+          const payload = await proxy.handler({ body: inputBody }, {});
+          response.writeHead(payload.statusCode, payload.headers);
+          response.write(payload.body);
+
           response.end();
 
         } else if (request.url === "/") {

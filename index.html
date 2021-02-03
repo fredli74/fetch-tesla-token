@@ -109,9 +109,9 @@
 </style>
 
 <body>
-  <h1>Tesla Auth token fetcher</h1>
-  <p>This is a simple node.js server for authenticating with the Tesla servers to obtain access and
-    refresh bearer tokens, as well as owner-api access tokens.</p>
+  <h1>Tesla token fetcher</h1>
+  <p>This is a simple node.js server for authenticating with the Tesla servers to obtain both
+    authentication access and refresh tokens, as well as owner-api access tokens.</p>
   <p><strong>Why a server?</strong>
     The Tesla API was not intended for direct use in browsers and <a
       href="https://developer.mozilla.org/en-US/docs/Web/HTTP/CORS">CORS</a> is preventing it. The server acts as a
@@ -120,7 +120,8 @@
     Yes. But don't just trust my word, verify!
   <ul>
     <li>It's open source (<a href="https://github.com/fredli74/fetch-tesla-token">GitHub</a>)</li>
-    <li>Download and run locally</li>
+    <li><a href="https://github.com/fredli74/fetch-tesla-token#how-do-i-run-it-locally">Download and run locally</a>
+    </li>
     <li>Server only using node.js standard library (no node_modules needed)</li>
     <li>Client is single html file (no third-party browser libraries)</li>
     <li>Small code base, review it all in minutes</li>
@@ -132,6 +133,8 @@
     <input type="email" id="email" autocomplete="email" placeholder="email" required>
     <label for="password">Password</label>
     <input type="password" id="password" autocomplete="off" placeholder="password" required>
+    <label for="mfa">MFA Passcode</label>
+    <input type="text" id="mfa" autocomplete="off" placeholder="(optional)">
     <button type="submit" id="authenticate">authenticate</button>
   </form>
   <div id="accesstoken" class="token"></div>
@@ -148,15 +151,23 @@
   const elForm = document.getElementById("form");
   const elEmail = document.getElementById("email");
   const elPassword = document.getElementById("password");
+  const elMFA = document.getElementById("mfa");
 
   function resetForm() {
     elPassword.value = "";
+    elMFA.value = "";
     elPassword.focus();
   }
 
   elEmail.addEventListener("keypress", (e) => {
     if (e.keyCode === 13) {
       elPassword.focus();
+      e.preventDefault();
+    }
+  });
+  elPassword.addEventListener("keypress", (e) => {
+    if (e.keyCode === 13) {
+      elMFA.focus();
       e.preventDefault();
     }
   });
@@ -169,7 +180,7 @@
     fetch("/proxy", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ email: elEmail.value, password: elPassword.value }),
+      body: JSON.stringify({ email: elEmail.value, password: elPassword.value, mfa: elMFA.value }),
     }).then((response) => {
       if (!response.ok) {
         resetForm();
