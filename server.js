@@ -14,6 +14,10 @@ const proxy = require("./functions/proxy");
 const PORT = Number(process.env["LISTEN_PORT"]) || 15198;
 const HOSTNAME = Number(process.env["LISTEN_HOST"]) || "";
 
+if (!process.versions || !process.versions.node || parseInt(process.versions.node.split(".")[0]) < 12) {
+  throw new Error("Node version 12.0.0 or higher required");
+}
+
 http
   .createServer(function (request, response) {
     let inputBody = "";
