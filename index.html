@@ -219,7 +219,11 @@
           elCaptcha.value = "";
         }
         elPassword.value = "";
-        elPassword.focus();
+        if (elEmail.value == "") {
+          elEmail.focus();
+        } else {
+          elPassword.focus();
+        }
       }
       resetForm();
 
