@@ -1,7 +1,7 @@
 {
   "name": "fetch-tesla-token",
-  "version": "1.0.0",
-  "description": "Super simple proxy for fetching Tesla API tokens",
+  "version": "1.1.0",
+  "description": "Simple node.js server for fetching Tesla tokens",
   "main": "server.js",
   "scripts": {
     "start": "node server.js"

@@ -1,5 +1,5 @@
 /**
- * @file proxy provided as a function to work with AWS and Netlify lambda functions
+ * @file proxy function designed to work with AWS and Netlify lambda functions
  * @author Fredrik Lidström
  * @copyright 2021 Fredrik Lidström
  * @license MIT (MIT)
@@ -7,25 +7,26 @@
 
 const teslaAuth = require("../teslaAuth");
 
-/*
-  
+/**
+ * Fetch captcha image
+ *
+ * @param {Object} event - { body: { session } }
+ * @param {Object} context - ignored
+ * @returns {Object} Response "captcha" image with dataURI
 */
 exports.handler = async function (event, context) {
   try {
-    const inputData = event.body && JSON.parse(event.body);
+    const input = event.body && JSON.parse(event.body);
 
-    // Sign in
-    const bearerToken = await teslaAuth.authenticate(inputData.email, inputData.password, inputData.mfa);
-
-    // Collect the token
-    const ownerToken = await teslaAuth.ownerapiToken(bearerToken.access_token);
+    // Get captcha image and convert it into a dataURI
+    const data = await teslaAuth.getCaptcha(input.session);
 
     // Return a mix of bearer and api access tokens
     return {
       statusCode: 200,
       body: JSON.stringify({
-        auth: bearerToken,
-        owner_api: ownerToken
+        reponse: "captcha",
+        image: data,
       })
     };
 

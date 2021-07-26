@@ -16,6 +16,12 @@
     padding: 0 1em;
   }
 
+  a {
+    font-weight: bold;
+    text-decoration: none;
+    color: #2d2daf;
+  }
+
   body,
   input {
     text-align: center;
@@ -106,10 +112,15 @@
     padding: 1em;
     color: #a93600;
   }
+
+  #captchaImg {
+    display: block;
+    margin: 0 auto;
+  }
 </style>
 
 <body>
-  <h1>Tesla token fetcher</h1>
+  <h1><a href="/">Tesla token fetcher</a></h1>
   <p>This is a simple node.js server for authenticating with the Tesla servers to obtain both
     authentication access and refresh tokens, as well as owner-api access tokens.</p>
   <p><strong>Why a server?</strong>
@@ -128,84 +139,217 @@
   </ul>
   </p>
 
-  <form id="form" action="" method="POST">
-    <label for="email">Tesla Account Email</label>
-    <input type="email" id="email" autocomplete="email" placeholder="email" required>
-    <label for="password">Password</label>
-    <input type="password" id="password" autocomplete="off" placeholder="password" required>
-    <label for="mfa">MFA Passcode</label>
-    <input type="text" id="mfa" autocomplete="off" placeholder="(optional)">
-    <button type="submit" id="authenticate">authenticate</button>
-  </form>
-  <div id="accesstoken" class="token"></div>
-  <div id="refreshtoken" class="token"></div>
-  <div id="apitoken" class="token"></div>
+  <div id="dynamic">
+    Contacting Tesla server...
+  </div>
+
   <div id="error"></div>
 </body>
 
 <script>
-  const elAccessToken = document.getElementById("accesstoken");
-  const elRefreshToken = document.getElementById("refreshtoken");
-  const elApiToken = document.getElementById("apitoken");
   const elError = document.getElementById("error");
-  const elForm = document.getElementById("form");
-  const elEmail = document.getElementById("email");
-  const elPassword = document.getElementById("password");
-  const elMFA = document.getElementById("mfa");
-
-  function resetForm() {
-    elPassword.value = "";
-    elMFA.value = "";
-    elPassword.focus();
+  function clearError() {
+    elError.innerHTML = "";
+  }
+  function showError(error) {
+    elError.innerHTML = `<div>${error}</div>`;
   }
 
-  elEmail.addEventListener("keypress", (e) => {
-    if (e.keyCode === 13) {
-      elPassword.focus();
-      e.preventDefault();
-    }
-  });
-  elPassword.addEventListener("keypress", (e) => {
-    if (e.keyCode === 13) {
-      elMFA.focus();
-      e.preventDefault();
-    }
-  });
-  elForm.addEventListener("submit", (e) => {
-    elAccessToken.innerHTML = "";
-    elRefreshToken.innerHTML = "";
-    elApiToken.innerHTML = "";
-    elError.innerHTML = "";
+  const elDynamic = document.getElementById("dynamic");
 
-    fetch("/proxy", {
+  let session;
+  let formData;
+
+  // Call an RPC function on the server
+  async function rpc(url, data) {
+    const response = await fetch(url, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ email: elEmail.value, password: elPassword.value, mfa: elMFA.value }),
-    }).then((response) => {
-      if (!response.ok) {
-        resetForm();
-        throw new Error(response.headers.get("X-Error") || 'Unknown error from server')
+      body: JSON.stringify({ session, ...data }),
+    });
+    if (!response.ok) {
+      throw new Error(response.headers.get("X-Error") || 'Unknown error from server')
+    }
+    return await response.json();
+  }
+
+  async function newSession() {
+    try {
+      const data = await rpc("/session");
+      session = data.session;
+      formData = data.htmlForm;
+
+      if (!session || !formData || !formData.transaction_id) {
+        throw new Error("Unable to detect all fields from sign in form");
       }
-      return response.json();
-    }).then(function (data) {
+
+      // Create the sign in form
+      const html = [`
+        <form id="form" action="" method="POST">
+          <label for="email">Tesla Account Email</label>
+          <input type="email" id="email" autocomplete="email" autocorrect="off" autocapitalize="none" placeholder="email" required>
+          <label for="password">Password</label>
+          <input type="password" id="password" autocomplete="off" autocorrect="off" autocapitalize="none" placeholder="password" required>
+      `];
+
+      if (formData.captcha !== undefined) {
+        html.push(`
+          <img id="captchaImg" alt="">
+          <label for="captcha">Enter the characters in the picture</label>
+          <input type="text" id="captcha" autocomplete="off" autocorrect="off" autocapitalize="none" required>
+        `);
+      }
+
+      html.push(`
+          <button type="submit" id="authenticate">authenticate</button>
+        </form>
+      `);
+      elDynamic.innerHTML = html.join("");
+
+      /* Hook up event listeners to the form */
+      const elForm = document.getElementById("form");
+      const elEmail = document.getElementById("email");
+      const elPassword = document.getElementById("password");
+      const elCaptchaImg = document.getElementById("captchaImg");
+      const elCaptcha = document.getElementById("captcha");
+
+      async function resetForm() {
+        if (elCaptchaImg) {
+          elCaptchaImg.src = (await rpc("/captcha", { session })).image;
+          elCaptcha.value = "";
+        }
+        elPassword.value = "";
+        elPassword.focus();
+      }
       resetForm();
-      if (location.hash !== "#refresh_token") {
-        elAccessToken.innerHTML = `<span>Access Token <button class="copybtn" onclick="copy('accessArea')">copy</button></span><textarea id="accessArea" readonly>${data.auth.access_token}</textarea>`;
-        elApiToken.innerHTML = `<span>Owner-API Token <button class="copybtn" onclick="copy('apiInput')">copy</button></span><input id="apiInput" readonly value="${data.owner_api.access_token}">`;
+
+      elEmail.addEventListener("keypress", (event) => {
+        if (event.keyCode === 13) {
+          if (elPassword) {
+            event.preventDefault();
+            elPassword.focus();
+          }
+        }
+      });
+      elPassword.addEventListener("keypress", (event) => {
+        if (event.keyCode === 13) {
+          if (elCaptcha) {
+            event.preventDefault();
+            elCaptcha.focus();
+          }
+        }
+      });
+      elForm.addEventListener("submit", async (event) => {
+        event.preventDefault();
+        clearError();
+
+        formData.identity = elEmail.value;
+        formData.credential = elPassword.value;
+        formData.captcha = elCaptcha.value;
+
+        try {
+          const data = await rpc("/authenticate", { form: formData });
+          if (data.response === "mfa") {
+            createFactorForm(data.mfaFactors);
+          } else {
+            showToken(data);
+          }
+        } catch (e) {
+          // Handle errors in the form submit
+          showError(e);
+          resetForm();
+        }
+      });
+
+    } catch (e) {
+      // Handle errors in newSession call
+      showError(e);
+    }
+
+  }
+
+  async function createFactorForm(factors) {
+    // TODO: show options and let user choose the MFA factor
+    elDynamic.innerHTML = `
+      <form id="factorForm" action="" method="POST">
+        <label for="mfa">MFA Passcode</label>
+        <input type="text" id="mfa" autocomplete="off" autocorrect="off" autocapitalize="none" placeholder="code" required>
+        <button type="submit" id="authenticate">authenticate</button>
+      </form>`;
+
+    /* Hook up event listeners to the form */
+    const elForm = document.getElementById("factorForm");
+    const elMFA = document.getElementById("mfa");
+
+    async function resetFactorForm() {
+      elMFA.value = "";
+      elMFA.focus();
+    }
+
+    elForm.addEventListener("submit", async (event) => {
+      event.preventDefault();
+      clearError();
+
+      const passcode = elMFA.value;
+      const transaction_id = formData.transaction_id;
+
+      let error;
+      for (let mfa of factors) {
+        if (mfa.factorType === "token:software") {
+          const factor_id = mfa.id;
+          try {
+            await rpc("/validate", { transaction_id, passcode, factor_id });
+            const data = await rpc("/authenticate", { form: { transaction_id } });
+            showToken(data);
+            return
+          } catch (e) {
+            // Ignore errors but save the message
+            error = e && e.message;
+          }
+        }
       }
-      elRefreshToken.innerHTML = `<span>Refresh Token <button class="copybtn" onclick="copy('refreshArea')">copy</button></span><textarea id="refreshArea" readonly>${data.auth.refresh_token}</textarea>`;
-    }).catch(error => {
-      elError.innerHTML = `<div>${error}</div>`;
-    })
-    e.preventDefault();
-  });
+      if (error) {
+        showError(error);
+      }
+      resetFactorForm();
+    });
+
+    resetFactorForm();
+  }
+
+  function showToken(data) {
+    const html = [];
+    if (location.hash !== "#refresh_token") {
+      html.push(`
+        <div id="accesstoken" class="token">
+          <span>Access Token <button class="copybtn" onclick="copy('accessArea')">copy</button></span>
+          <textarea id="accessArea" readonly>${data.auth.access_token}</textarea>
+        </div>
+        <div id="apitoken" class="token">
+          <span>Owner-API Token <button class="copybtn" onclick="copy('apiInput')">copy</button></span>
+          <input id="apiInput" readonly value="${data.owner_api.access_token}">
+        </div>
+      `);
+    }
+    html.push(`
+      <div id="refreshtoken" class="token">
+        <span>Refresh Token <button class="copybtn" onclick="copy('refreshArea')">copy</button></span>
+        <textarea id="refreshArea" readonly>${data.auth.refresh_token}</textarea>
+      </div>
+    `);
+    elDynamic.innerHTML = html.join("");
+  }
+
   function copy(id) {
     const el = document.getElementById(id);
     el.select();
     el.setSelectionRange(0, 99999)
     document.execCommand("copy");
   }
+
+  newSession();
 </script>
+
 <noscript style="color:red">Your browser does not support JavaScript!</noscript>
 
 </html>

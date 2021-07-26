@@ -17,6 +17,8 @@ const TESLA_API_CLIENT_ID = "81527cff06843c8634fdc09e8ac0abefb46ac849f38fe1e431c
 const TESLA_API_CLIENT_SECRET = "c7257eb71a564034f9419ee651c7d0e5f7aa6bfbd18bafb5c5c033b093bb2fa3";
 
 class TeslaAuthException extends Error { };
+class TeslaAuthIncorrectRegion extends Error { };
+class TeslaAuthIncorrectCaptcha extends Error { };
 class TeslaAuthUnauthorized extends Error { };
 class TeslaAuthMFARequired extends Error { };
 
@@ -41,10 +43,12 @@ function bufferBase64url(buffer) {
  * If data is provided, Content-Length is added automatically, but the Content-Type
  * must be set manually in the provided headers.
  * 
- * @throws {*}
+ * @throws {TeslaAuthException} On statusCode >= 500
+ * @throws {TeslaAuthUnauthorized} On statusCode >= 400
+ * @throws {Error} On any other error
  * @param {Object} opt - Options to pass to https.request
- * @param {Object|unedfined} cookieJar - Object to send and store cookies
- * @param {(string|NodeJS.ArrayBufferView|ArrayBuffer|SharedArrayBuffer|undefined)} data - Data
+ * @param {Object|undefined} cookieJar - Object to send and store cookies
+ * @param {Object|undefined} data - Data
  * @returns {http.ClientRequest} 
  */
 function request(opt, cookieJar, data) {
@@ -61,9 +65,9 @@ function request(opt, cookieJar, data) {
   return new Promise((resolve, reject) => {
     const req = https.request(opt, (res) => {
       let body = "";
-      res.setEncoding("utf8");
+      res.setEncoding("binary");
       res.on("error", (e) => reject(e));
-      res.on("data", chunk => (body += chunk));
+      res.on("data", chunk => body += chunk)
       res.on("end", () => {
         if (res.statusCode >= 500) {
           reject(new TeslaAuthException(`${res.statusCode} ${res.statusMessage}`));
@@ -100,42 +104,62 @@ function request(opt, cookieJar, data) {
 }
 
 /**
- * Authenticate with Tesla OAuth 2.0 authentication server (v3)
+ * Call Tesla autorize API
+ * 
+ * If data is provided, it will POST a request instead of using GET, using
+ * Content-Type: "application/x-www-form-urlencoded"
  *
- * @export
- * @throws On any encountered error
- * @param {string} identity - Tesla account email address
- * @param {string} credential - Tesla account password
- * @param {string|undefined} passcode - Multi-Factor Authentication passcode (optional)
- * @returns {Object} Returns the Tesla server token response
+ * @throws {Error} On error
+ * @param {Object} session - Session object from newSession()
+ * @param {Object|undefined} data - Data
+ * @returns {http.ClientRequest}
  */
-async function authenticate(identity, credential, passcode) {
+async function autorizeRequest(session, data) {
+  const opts = {
+    host: TESLA_AUTH_HOST,
+    path: `/oauth2/v3/authorize?${querystring.stringify({
+      client_id: "ownerapi",
+      code_challenge: session.codeChallenge,
+      code_challenge_method: "S256",
+      redirect_uri: `https://auth.tesla.com/void/callback`,
+      response_type: "code",
+      scope: "openid email offline_access",
+      state: session.state
+    })}`,
+  };
+  if (data) {
+    opts.method = "POST";
+    opts.headers = { "Content-Type": "application/x-www-form-urlencoded" }
+    return request(opts, session.cookieJar, querystring.stringify(data));
+  }
+  return request(opts, session.cookieJar);
+}
 
+/**
+ * Start a new authentication session and scrape the SSO signup form
+ * 
+ * @export
+ * @throws {TeslaAuthException|Error} On error
+ * @returns {Object} { session: Object, htmlForm: Object }
+ */
+async function newSession() {
   // Generate a verifier ID and its hash
   const state = bufferBase64url(crypto.randomBytes(16));
   const codeVerifier = bufferBase64url(crypto.randomBytes(64));
   const hash = crypto.createHash("sha256").update(codeVerifier).digest("hex");
   const codeChallenge = bufferBase64url(Buffer.from(hash));
 
-
-  // Set the authorize URL path
-  const authPath = `/oauth2/v3/authorize?${querystring.stringify({
-    client_id: "ownerapi",
-    code_challenge: codeChallenge,
-    code_challenge_method: "S256",
-    redirect_uri: "https://auth.tesla.com/void/callback",
-    response_type: "code",
-    scope: "openid email offline_access",
-    state: state
-  })}`;
-
-  // CookieJar for the session
-  const cookieJar = {};
+  const session = {
+    state,
+    codeChallenge,
+    codeVerifier,
+    cookieJar: {},
+  };
 
   // Obtain and scrape the sign in page
   const htmlForm = {};
   try {
-    const res = await request({ method: "GET", host: TESLA_AUTH_HOST, path: authPath }, cookieJar);
+    const res = await autorizeRequest(session);
     const form = res.body.match(/<form.+?id=\"form\".+?>(.+?)<\/form>/s);
     if (form.length < 2) {
       throw new TeslaAuthException("Unable to find sign in form");
@@ -152,87 +176,66 @@ async function authenticate(identity, credential, passcode) {
     throw err;
   }
 
+  return {
+    session,
+    htmlForm
+  }
 
-  // Add credentials to sign in form
-  htmlForm.identity = identity;
-  htmlForm.credential = credential;
+}
 
+/**
+ * Get a captcha image and encode it as a dataURI
+ *
+ * @export
+ * @throws {Error} On error
+ * @param {Object} session - Session object from newSession()
+ * @returns
+ */
+async function getCaptcha(session) {
+  const res = await request({
+    host: TESLA_AUTH_HOST,
+    path: "/captcha"
+  }, session.cookieJar);
 
-  // Post sign in form
-  let redirectURL = undefined;
+  const media = res.headers["content-type"].replace(/ /g, "");
+  const data = Buffer.from(res.body).toString("base64");
+
+  return `data:${media};base64,${data}`;
+}
+
+/**
+ * Authenticate with Tesla OAuth 2.0 authentication server (v3)
+ *
+ * @export
+ * @throws {TeslaAuthIncorrectCaptcha} When captcha is required and incorrect
+ * @throws {TeslaAuthMFARequired} When account has MFA enabled
+ * @throws {TeslaAuthIncorrectRegion} If account belongs to a different region
+ * @throws {TeslaAuthUnauthorized} If authorization fails
+ * @throws {TeslaAuthException|Error} On any other error
+ * @param {string} identity - Tesla account email address
+ * @param {string} credential - Tesla account password
+ * @param {string|undefined} passcode - Multi-Factor Authentication passcode (optional)
+ * @returns {string} Authorization code
+ */
+async function authenticate(session, formData) {
   try {
-    let res = await request({
-      method: "POST",
-      host: TESLA_AUTH_HOST,
-      path: authPath,
-      headers: { "Content-Type": "application/x-www-form-urlencoded" }
-    }, cookieJar, querystring.stringify(htmlForm));
-    if (res.statusCode === 200 && res.body.match(/authorize\/mfa\/verify/)) {
-
-      // Account has MFA enabled
-      if (!passcode) {
-        throw new TeslaAuthMFARequired("Multi-Factor Authentication required");
-      } else {
-        let valid = false;
-        try {
-
-          // Get a list of MFA devices registered
-          const mfaFactors = JSON.parse((await request({
-            method: "GET",
-            host: TESLA_AUTH_HOST,
-            path: `/oauth2/v3/authorize/mfa/factors?${querystring.stringify({
-              transaction_id: htmlForm.transaction_id
-            })}`,
-          }, cookieJar)).body).data;
-          if (typeof mfaFactors !== "object" || mfaFactors.length < 1) {
-            throw new TeslaAuthException("factors unavailable");
-          }
-
-          // Test all devices
-          for (let factor of mfaFactors) {
-            if (!valid && factor.factorType === "token:software") {
-              try {
-                const verify = JSON.parse(
-                  (
-                    await request({
-                      method: "POST",
-                      host: TESLA_AUTH_HOST,
-                      path: "/oauth2/v3/authorize/mfa/verify",
-                      headers: { "Content-Type": "application/json" }
-                    }, cookieJar, JSON.stringify({
-                      factor_id: factor.id,
-                      passcode: passcode,
-                      transaction_id: htmlForm.transaction_id
-                    }))
-                  ).body
-                );
-                if (verify.data && verify.data.valid) {
-                  valid = true;
-                }
-              } catch { } // Ignore
-            }
-          }
-        } catch (e) {
-          throw new TeslaAuthException(`Unexpected MFA error (${e})`);
-        }
-
-        if (!valid) {
-          throw new TeslaAuthUnauthorized("Invalid passcode");
-        }
-
-        // MFA was validated, repost the login page with only the transaction_id
-        res = await request({
-          method: "POST",
-          host: TESLA_AUTH_HOST,
-          path: authPath,
-          headers: { "Content-Type": "application/x-www-form-urlencoded" }
-        }, cookieJar, querystring.stringify({ transaction_id: htmlForm.transaction_id }));
+    let res = await autorizeRequest(session, formData);
+    if (res.statusCode === 200 && res.body.match(/Captcha does not match/)) {
+      throw new TeslaAuthIncorrectCaptcha("captcha does not match");
+    } else if (res.statusCode === 200 && res.body.match(/authorize\/mfa\/verify/)) {
+      throw new TeslaAuthMFARequired("Multi-Factor Authentication required");
+    } else if (res.statusCode === 303) {
+      // TODO: Add support for tesla.cn
+      throw new TeslaAuthIncorrectRegion("incorrect server region");
+    } else if (res.statusCode === 302) {
+      // Verify redirect
+      const redirectURL = res.headers.location;
+      const redirectQuery = querystring.parse(redirectURL.split("?")[1]);
+      if (redirectQuery.state !== session.state) {
+        throw new TeslaAuthException("Invalid state returned by Tesla server");
       }
-    }
+      return redirectQuery.code
 
-    if (res.statusCode === 302) {
-      // When sign in is successful we recieve a redirect to the redirect_uri
-      redirectURL = res.headers.location;
     } else {
       throw new TeslaAuthUnauthorized("Unknown");
     }
@@ -240,16 +243,106 @@ async function authenticate(identity, credential, passcode) {
     err.message = "Tesla sign in page error - " + err.message;
     throw err;
   }
+}
 
-
-  // Verify redirect
-  const redirectQuery = querystring.parse(redirectURL.split("?")[1]);
-  if (redirectQuery.state !== state) {
-    throw new TeslaAuthException("Invalid state returned by Tesla server");
+/**
+ * Get a list of MFA devices registered to the account
+ *
+ * @export
+ * @throws {TeslaAuthException} factors unavailable
+ * @throws {Error} On any other error
+ * @param {Object} session - Session object from newSession()
+ * @param {string} transaction_id - Transaction ID obtained from the SSO form
+ * @returns {Object} Array of all MFA devices registered 
+ */
+async function getFactors(session, transaction_id) {
+  const mfaFactors = JSON.parse(
+    (
+      await request({
+        host: TESLA_AUTH_HOST,
+        path: `/oauth2/v3/authorize/mfa/factors?${querystring.stringify({
+          transaction_id
+        })}`
+      }, session.cookieJar)
+    ).body
+  ).data;
+  if (typeof mfaFactors !== "object" || mfaFactors.length < 1) {
+    throw new TeslaAuthException("factors unavailable");
   }
+  return mfaFactors;
+}
 
+/**
+ * Validate a single factor using passcode
+ *
+ * @export
+ * @throws {TeslaAuthUnauthorized} invalid passcode
+ * @throws {Error} On any other error
+ * @param {Object} session - Session object from newSession()
+ * @param {string} factor_id - Factor ID
+ * @param {string} passcode - MFA Passcode
+ * @param {string} transaction_id - Transaction ID obtained from the SSO form
+ * @returns {boolean} true
+ */
+async function validateFactor(session, factor_id, passcode, transaction_id) {
+  const verify = JSON.parse(
+    (
+      await request({
+        method: "POST",
+        host: TESLA_AUTH_HOST,
+        path: `/oauth2/v3/authorize/mfa/verify`,
+        headers: { "Content-Type": "application/json" }
+      }, session.cookieJar, JSON.stringify({
+        factor_id,
+        passcode,
+        transaction_id
+      }))
+    ).body
+  );
+  if (!verify.data || !verify.data.valid) {
+    throw new TeslaAuthUnauthorized("invalid passcode");
+  }
+  return true;
+}
 
-  // Exchange authorization code for bearer token
+/**
+ * Validate MFA passcode to all registered MFA devices
+ * 
+ * @export
+ * @throws {TeslaAuthUnauthorized} invalid passcode
+ * @throws {Error} On any other error
+ * @param {Object} session - Session object from newSession()
+ * @param {string} passcode - MFA Passcode
+ * @param {string} transaction_id - Transaction ID obtained from the SSO form
+ * @returns {boolean} true
+ */
+async function validateFactors(session, passcode, transaction_id) {
+  // Get a list of MFA devices registered
+  const mfaFactors = await getFactors(session, transaction_id);
+
+  // Loop through them and test the passcode
+  let error;
+  for (let factor of mfaFactors) {
+    if (factor.factorType === "token:software") {
+      try {
+        await validateFactor(session, factor.id, passcode, transaction_id);
+        return true;
+      } catch { } // Ignore
+    }
+  }
+  throw new TeslaAuthUnauthorized("invalid passcode");
+}
+
+/**
+ * Exchange authorization code for bearer token
+ *
+ * @export
+ * @throws {Error} On error
+ * @param {string} code - Authorization code from authenticate()
+ * @param {string} code_verifier - Session.codeVerifier from newSession()
+ * @returns {Object} bearer token object
+ */
+async function bearerToken(code, code_verifier) {
   try {
     const res = await request({
       method: "POST",
@@ -259,8 +352,8 @@ async function authenticate(identity, credential, passcode) {
     }, undefined, JSON.stringify({
       grant_type: "authorization_code",
       client_id: "ownerapi",
-      code: redirectQuery.code,
-      code_verifier: codeVerifier,
+      code,
+      code_verifier,
       redirect_uri: "https://auth.tesla.com/void/callback"
     }));
     return JSON.parse(res.body);
@@ -273,6 +366,8 @@ async function authenticate(identity, credential, passcode) {
 /**
  * Obtain a new authentication token from a refresh_token
  *
+ * @export
+ * @throws {Error} On error
  * @param {string} refresh_token - refresh_token previously collected from the Tesla authentication API
  * @returns {Object} Returns the Tesla server token response
  */
@@ -294,7 +389,7 @@ async function refreshToken(refresh_token) {
 /**
  * Exchange an authentication access_token for a owner-api access_token
  *
- * @param {string} bearerToken - access_token part of the authentication token (v3)
+ * @param {string} bearerToken - bearerToken.access_token collected from bearerToken()
  * @returns {Object} Returns the Tesla server token response
  */
 async function ownerapiToken(bearerToken) {
@@ -314,13 +409,19 @@ async function ownerapiToken(bearerToken) {
   return JSON.parse(res.body);
 }
 
-
-
 module.exports = {
   TeslaAuthException,
+  TeslaAuthIncorrectRegion,
+  TeslaAuthIncorrectCaptcha,
   TeslaAuthUnauthorized,
   TeslaAuthMFARequired,
+  newSession,
+  getCaptcha,
   authenticate,
+  getFactors,
+  validateFactor,
+  validateFactors,
+  bearerToken,
   refreshToken,
   ownerapiToken
 };

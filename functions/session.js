@@ -1,0 +1,35 @@
+/**
+ * @file proxy function designed to work with AWS and Netlify lambda functions
+ * @author Fredrik Lidström
+ * @copyright 2021 Fredrik Lidström
+ * @license MIT (MIT)
+*/
+
+const teslaAuth = require("../teslaAuth");
+
+/**
+ * Create a new session and return the sign in form
+ *
+ * @param {Object} event - ignored
+ * @param {Object} context - ignored
+ * @returns {Object} Response with { session, htmlForm }
+*/
+exports.handler = async function (event, context) {
+  try {
+    const data = await teslaAuth.newSession();
+
+    return {
+      statusCode: 200,
+      body: JSON.stringify(data)
+    };
+  } catch (err) {
+    console.error(err);
+    return {
+      statusCode: 500,
+      headers: {
+        "X-Error": err.message
+      },
+      body: err.message
+    }
+  }
+}
