@@ -15,6 +15,8 @@ const teslaAuth = require("../teslaAuth");
  * @returns {Object} Response "captcha" image with dataURI
 */
 exports.handler = async function (event, context) {
+  console.log(`TRACE captcha(${JSON.stringify(event)}, ${JSON.stringify(context)}) called`);
+
   try {
     const input = event.body && JSON.parse(event.body);
 
@@ -31,7 +33,9 @@ exports.handler = async function (event, context) {
     };
 
   } catch (err) {
-    console.error(err);
+    console.log(`ERROR ${err.message}`);
+    console.log(`TRACE ${JSON.stringify(err)}`);
+
     return {
       statusCode: 500,
       headers: {
