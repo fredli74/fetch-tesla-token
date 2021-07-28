@@ -218,8 +218,8 @@ async function getCaptcha(session) {
  * @throws {TeslaAuthIncorrectRegion} If account belongs to a different region
  * @throws {TeslaAuthUnauthorized} If authorization fails
  * @throws {TeslaAuthException|Error} On any other error
- * @param {string} identity - Tesla account email address
- * @param {string} credential - Tesla account password
+ * @param {Object} session - Session object from newSession()
+ * @param {Object} formData - HTML form scraped by newSession() with filled in fields
  * @param {string|undefined} passcode - Multi-Factor Authentication passcode (optional)
  * @returns {string} Authorization code
  */
