@@ -7,6 +7,8 @@
  * @license MIT (MIT)
  */
 
+const { TRACE } = process.env;
+
 const https = require("https");
 const crypto = require("crypto");
 const querystring = require("querystring");
@@ -62,6 +64,8 @@ function request(opt, cookieJar, data) {
     opt.headers["Cookie"] = Object.entries(cookieJar).map(c => `${c[0]}=${c[1]}`).join("; ");
   }
 
+  if (TRACE) console.log(`TRACE -> request(${JSON.stringify(opt)}, ${JSON.stringify(cookieJar)}, ${JSON.stringify(data)})`);
+
   return new Promise((resolve, reject) => {
     const req = https.request(opt, (res) => {
       let body = "";
@@ -69,6 +73,8 @@ function request(opt, cookieJar, data) {
       res.on("error", (e) => reject(e));
       res.on("data", chunk => body += chunk)
       res.on("end", () => {
+        if (TRACE) console.log(`TRACE <- ${res.statusCode} ${res.statusMessage} ${JSON.stringify(body)}`);
+
         if (res.statusCode >= 500) {
           reject(new TeslaAuthException(`${res.statusCode} ${res.statusMessage}`));
         } else if (res.statusCode >= 400) {

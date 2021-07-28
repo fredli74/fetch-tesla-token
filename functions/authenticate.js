@@ -5,6 +5,7 @@
  * @license MIT (MIT)
 */
 
+const { TRACE } = process.env;
 const teslaAuth = require("../teslaAuth");
 
 /**
@@ -15,7 +16,7 @@ const teslaAuth = require("../teslaAuth");
  * @returns {Object} Response "token" or "mfa" list of factors
 */
 exports.handler = async function (event, context) {
-  console.log(`TRACE authenticate(${JSON.stringify(event)}, ${JSON.stringify(context)}) called`);
+  if (TRACE) console.log(`TRACE authenticate(${JSON.stringify(event)}, ${JSON.stringify(context)}) called`);
   try {
     const input = event.body && JSON.parse(event.body);
 
