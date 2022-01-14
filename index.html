@@ -113,20 +113,40 @@
     color: #a93600;
   }
 
-  #captchaImg {
-    display: block;
-    margin: 0 auto;
+  #dynamic {
+    margin: 4rem auto;
+  }
+
+  #signlink {
+    width: 100%;
+    white-space: nowrap;
+    text-overflow: ellipsis;
+    overflow: hidden;
+  }
+
+  hr {
+    margin-bottom: 2rem;
   }
 </style>
 
 <body>
   <h1><a href="/">Tesla token fetcher</a></h1>
-  <p>This is a simple node.js server for authenticating with the Tesla servers to obtain both
-    authentication access and refresh tokens, as well as owner-api access tokens.</p>
+
+  <div id="dynamic">
+    Generating sign in link...
+  </div>
+
+  <hr>
+
+  <div id="error"></div>
+
   <p><strong>Why a server?</strong>
-    The Tesla API was not intended for direct use in browsers and <a
-      href="https://developer.mozilla.org/en-US/docs/Web/HTTP/CORS">CORS</a> is preventing it. The server acts as a
-    simple proxy to bypass this without storing any information.</p>
+    The Tesla API was only intended for the official Tesla App, therefore there are deliberate limitations that prevent
+    the ease of use for third party solutions. One of those limitations is that <a
+      href="https://developer.mozilla.org/en-US/docs/Web/HTTP/CORS">CORS</a> prevents any
+    other domain than tesla.com to access the API directly from a browser. Calling the API from a node.js server works
+    fine.</p>
+
   <p><strong>Is it safe?</strong>
     Yes. But don't just trust my word, verify!
   <ul>
@@ -139,15 +159,10 @@
   </ul>
   </p>
 
-  <div id="dynamic">
-    Contacting Tesla server...
-  </div>
-
-  <div id="error"></div>
 </body>
 
 <script>
-  const elError = document.getElementById("error");
+  const elError = document.querySelector("#error");
   function clearError() {
     elError.innerHTML = "";
   }
@@ -155,17 +170,14 @@
     elError.innerHTML = `<div>${error}</div>`;
   }
 
-  const elDynamic = document.getElementById("dynamic");
-
-  let session;
-  let formData;
+  const elDynamic = document.querySelector("#dynamic");
 
   // Call an RPC function on the server
   async function rpc(url, data) {
     const response = await fetch(url, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ session, ...data }),
+      body: JSON.stringify(data),
     });
     if (!response.ok) {
       throw new Error(response.headers.get("X-Error") || 'Unknown error from server')
@@ -175,89 +187,82 @@
 
   async function newSession() {
     try {
-      const data = await rpc("/session");
-      session = data.session;
-      formData = data.htmlForm;
-
-      if (!session || !formData || !formData.transaction_id) {
-        throw new Error("Unable to detect all fields from sign in form");
+      const session = await rpc("/session");;
+      if (!session || !session.url) {
+        throw new Error("Unable to generate a new session");
       }
 
-      // Create the sign in form
-      const html = [`
-        <form id="form" action="" method="POST">
-          <label for="email">Tesla Account Email</label>
-          <input type="email" id="email" autocomplete="email" autocorrect="off" autocapitalize="none" placeholder="email" required>
-          <label for="password">Password</label>
-          <input type="password" id="password" autocomplete="off" autocorrect="off" autocapitalize="none" placeholder="password" required>
-      `];
+      // Show sign in link and URL form
+      elDynamic.innerHTML = `
+      <p><strong>What is this?</strong>
+        This is a simple node.js server for authenticating with the Tesla servers to obtain
+        both bearer access and refresh tokens, as well as owner-api access tokens.</p>
+      <p><strong>How does it work?</strong>
+        Tesla is constantly seeking ways to make their sign in more secure, and when they do, third party solutions tends to
+        break. I finally came to the conclusion that the best way forward is to use the official sign in
+        flow as much as possible. An added benefit to this decision is that users email, password, and MFA codes are
+        never entered or proxied through this server, they are only used directly on the official secure Tesla page.
+        The drawback is that it requires an additional manual step by the user at the end.</p>
+      <ol>
+        <li>This server generates a random session id and creates a unique sign in link to tesla.com
+        <li>Visit the link and sign in (do not close this window)
+          <div id="signlink"><a href="${session.url}" target="_blank">${session.url}</a></div>
+        <li>Once signed in, you are redirected to a page on tesla.com that does not exist. This is how Tesla uses it
+      internally and it is intentional.
+        <li>Copy <strong>the full url</strong> <em>(https://auth.tesla.com/void/callback?code=...)</em> from your browser.
+        <li>Come back to this window and paste the full url in the form field below
+          <form id="form" action="" method="POST">
+            <input type="text" id="url" autocorrect="off" autocapitalize="none" placeholder="paste here" required>
+            <button type="submit" id="fetch">fetch tokens</button>
+          </form>
+      </ol>
+      `;
 
-      if (formData.captcha !== undefined) {
-        html.push(`
-          <img id="captchaImg" src="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='150' height='50' viewBox='0,0,150,50'%3E%3Ctext x='50%25' y='50%25' dominant-baseline='middle' text-anchor='middle' style='fill:%23888'%3Eloading...%3C/text%3E%3C/svg%3E" alt="">
-          <label for="captcha">Enter the characters in the picture</label>
-          <input type="text" id="captcha" autocomplete="off" autocorrect="off" autocapitalize="none" required>
-        `);
-      }
+      const formData = {
+        codeVerifier: session.codeVerifier,
+        state: session.state
+      };
 
-      html.push(`
-          <button type="submit" id="authenticate">authenticate</button>
-        </form>
-      `);
-      elDynamic.innerHTML = html.join("");
+      /* Hook up form to JS */
+      const elForm = document.querySelector("#form");
+      const elURL = document.querySelector("#url");
 
-      /* Hook up event listeners to the form */
-      const elForm = document.getElementById("form");
-      const elEmail = document.getElementById("email");
-      const elPassword = document.getElementById("password");
-      const elCaptchaImg = document.getElementById("captchaImg");
-      const elCaptcha = document.getElementById("captcha");
+      /* Populate fields */
 
-      async function resetForm() {
-        if (elCaptchaImg) {
-          elCaptchaImg.src = (await rpc("/captcha", { session })).image;
-          elCaptcha.value = "";
-        }
-        elPassword.value = "";
-        if (elEmail.value == "") {
-          elEmail.focus();
-        } else {
-          elPassword.focus();
-        }
-      }
-      resetForm();
-
-      elEmail.addEventListener("keypress", (event) => {
-        if (event.keyCode === 13) {
-          if (elPassword) {
-            event.preventDefault();
-            elPassword.focus();
-          }
-        }
-      });
-      elPassword.addEventListener("keypress", (event) => {
-        if (event.keyCode === 13) {
-          if (elCaptcha) {
-            event.preventDefault();
-            elCaptcha.focus();
-          }
-        }
-      });
       elForm.addEventListener("submit", async (event) => {
         event.preventDefault();
         clearError();
 
-        formData.identity = elEmail.value;
-        formData.credential = elPassword.value;
-        formData.captcha = elCaptcha.value;
+        formData.url = elURL.value;
 
         try {
-          const data = await rpc("/authenticate", { form: formData });
-          if (data.response === "mfa") {
-            createFactorForm(data.mfaFactors);
-          } else {
-            showToken(data);
+          const data = await rpc("/token", formData);
+
+          const html = [];
+          if (location.hash !== "#refresh_token") {
+            html.push(`
+              <div id="accesstoken" class="token">
+                <span>Access Token <button class="copybtn" onclick="copy('accessArea')">copy</button></span>
+                <textarea id="accessArea" readonly>${data.bearer.access_token}</textarea>
+              </div>
+            `);
+            if (data.owner_api) {
+              html.push(`
+                <div id="apitoken" class="token">
+                  <span>Owner-API Token <button class="copybtn" onclick="copy('apiInput')">copy</button></span>
+                  <input id="apiInput" readonly value="${data.owner_api.access_token}">
+                </div>
+              `);
+            }
           }
+          html.push(`
+            <div id="refreshtoken" class="token">
+              <span>Refresh Token <button class="copybtn" onclick="copy('refreshArea')">copy</button></span>
+              <textarea id="refreshArea" readonly>${data.bearer.refresh_token}</textarea>
+            </div>
+          `);
+          elDynamic.innerHTML = html.join("");
+
         } catch (e) {
           // Handle errors in the form submit
           showError(e);
@@ -270,78 +275,6 @@
       showError(e);
     }
 
-  }
-
-  async function createFactorForm(factors) {
-    // TODO: show options and let user choose the MFA factor
-    elDynamic.innerHTML = `
-      <form id="factorForm" action="" method="POST">
-        <label for="mfa">MFA Passcode</label>
-        <input type="text" id="mfa" autocomplete="off" autocorrect="off" autocapitalize="none" placeholder="code" required>
-        <button type="submit" id="authenticate">authenticate</button>
-      </form>`;
-
-    /* Hook up event listeners to the form */
-    const elForm = document.getElementById("factorForm");
-    const elMFA = document.getElementById("mfa");
-
-    async function resetFactorForm() {
-      elMFA.value = "";
-      elMFA.focus();
-    }
-
-    elForm.addEventListener("submit", async (event) => {
-      event.preventDefault();
-      clearError();
-
-      const passcode = elMFA.value;
-      const transaction_id = formData.transaction_id;
-
-      let error;
-      for (let mfa of factors) {
-        if (mfa.factorType === "token:software") {
-          const factor_id = mfa.id;
-          try {
-            await rpc("/validate", { transaction_id, passcode, factor_id });
-            const data = await rpc("/authenticate", { form: { transaction_id } });
-            showToken(data);
-            return
-          } catch (e) {
-            // Ignore errors but save the message
-            error = e && e.message;
-          }
-        }
-      }
-      if (error) {
-        showError(error);
-      }
-      resetFactorForm();
-    });
-
-    resetFactorForm();
-  }
-
-  function showToken(data) {
-    const html = [];
-    if (location.hash !== "#refresh_token") {
-      html.push(`
-        <div id="accesstoken" class="token">
-          <span>Access Token <button class="copybtn" onclick="copy('accessArea')">copy</button></span>
-          <textarea id="accessArea" readonly>${data.auth.access_token}</textarea>
-        </div>
-        <div id="apitoken" class="token">
-          <span>Owner-API Token <button class="copybtn" onclick="copy('apiInput')">copy</button></span>
-          <input id="apiInput" readonly value="${data.owner_api.access_token}">
-        </div>
-      `);
-    }
-    html.push(`
-      <div id="refreshtoken" class="token">
-        <span>Refresh Token <button class="copybtn" onclick="copy('refreshArea')">copy</button></span>
-        <textarea id="refreshArea" readonly>${data.auth.refresh_token}</textarea>
-      </div>
-    `);
-    elDynamic.innerHTML = html.join("");
   }
 
   function copy(id) {
