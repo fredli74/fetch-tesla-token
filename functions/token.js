@@ -1,7 +1,7 @@
 /**
  * @file proxy function designed to work with AWS and Netlify lambda functions
  * @author Fredrik Lidström
- * @copyright 2022 Fredrik Lidström
+ * @copyright 2019-2022 Fredrik Lidström
  * @license MIT (MIT)
 */
 

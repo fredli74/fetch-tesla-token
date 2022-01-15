@@ -3,9 +3,15 @@
  * 
  * @file Functions to communicate with Tesla authentication servers to get bearer and access tokens. Does not authenticate SSO sessions.
  * @author Fredrik Lidström
- * @copyright 2022 Fredrik Lidström
+ * @copyright 2019-2022 Fredrik Lidström
  * @license MIT (MIT)
  */
+
+const TESLA_AUTH_BASE = `https://auth.tesla.com/oauth2/v3`;
+const TESLA_AUTH_REDIRECT = `https://auth.tesla.com/void/callback`;
+const TESLA_OWNERAPI_URL = "https://owner-api.teslamotors.com/oauth";
+const TESLA_OWNERAPI_CLIENT_ID = "81527cff06843c8634fdc09e8ac0abefb46ac849f38fe1e431c2ef2106796384";
+const TESLA_OWNERAPI_CLIENT_SECRET = "c7257eb71a564034f9419ee651c7d0e5f7aa6bfbd18bafb5c5c033b093bb2fa3";
 
 const { TRACE } = process.env;
 
@@ -108,14 +114,14 @@ function newSession() {
   const hash = crypto.createHash("sha256").update(codeVerifier).digest("hex");
   const codeChallenge = bufferBase64url(Buffer.from(hash));
   // Generate a Tesla SSO Sign In URL
-  const url = `https://auth.tesla.com/oauth2/v3/authorize?${new URLSearchParams({
+  const url = `${TESLA_AUTH_BASE}/authorize?${new URLSearchParams({
     client_id: "ownerapi",
+    state: state,
     code_challenge: codeChallenge,
     code_challenge_method: "S256",
-    redirect_uri: `https://auth.tesla.com/void/callback`,
+    redirect_uri: TESLA_AUTH_REDIRECT,
     response_type: "code",
     scope: "openid email offline_access",
-    state: state
   })}`;
   return { url, state, codeVerifier, codeChallenge };
 }
@@ -146,22 +152,25 @@ function decodeCallbackURL(url) {
  * @throws {Error} On error
  * @param {string} code - Authorization code from successful Tesla SSO Sign In
  * @param {string} code_verifier - codeVerifier from newSession()
- * @param {string} [issuer=https://auth.tesla.com/oauth2/v3] - Optional authentication base url
+ * @param {string} [issuer=default_url] - Optional authentication base url
  * @returns {Object} bearer token object
  */
 async function bearerToken(code, code_verifier, issuer) {
   try {
-    const url = joinURL("token", issuer || "https://auth.tesla.com/oauth2/v3");
-    const res = await request(url, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" }
-    }, JSON.stringify({
-      grant_type: "authorization_code",
-      client_id: "ownerapi",
-      code,
-      code_verifier,
-      redirect_uri: "https://auth.tesla.com/void/callback"
-    }));
+    const url = joinURL("token", issuer || TESLA_AUTH_BASE);
+    const res = await request(
+      url,
+      {
+        method: "POST",
+        headers: { "Content-Type": "application/json" }
+      }, JSON.stringify({
+        grant_type: "authorization_code",
+        client_id: "ownerapi",
+        code,
+        code_verifier,
+        redirect_uri: TESLA_AUTH_REDIRECT
+      })
+    );
     const token = JSON.parse(res.body);
     token.issuer = issuer;
     return token;
@@ -177,20 +186,24 @@ async function bearerToken(code, code_verifier, issuer) {
  * @export
  * @throws {Error} On error
  * @param {string} refresh_token - refresh_token previously collected from the Tesla authentication API
- * @param {string} [issuer=https://auth.tesla.com/oauth2/v3] - Optional authentication base url
+ * @param {string} [issuer=default_url] - Optional authentication base url
  * @returns {Object} Returns the Tesla server token response
  */
 async function refreshToken(refresh_token, issuer) {
-  const url = joinURL("token", issuer || "https://auth.tesla.com/oauth2/v3");
-  const res = await request(url, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" }
-  }, JSON.stringify({
-    grant_type: "refresh_token",
-    scope: "openid email offline_access",
-    client_id: "ownerapi",
-    refresh_token: refresh_token
-  }));
+  const url = joinURL("token", issuer || TESLA_AUTH_BASE);
+  const res = await request(
+    url,
+    {
+      method: "POST",
+      headers: { "Content-Type": "application/json" }
+    },
+    JSON.stringify({
+      grant_type: "refresh_token",
+      scope: "openid email offline_access",
+      client_id: "ownerapi",
+      refresh_token: refresh_token
+    })
+  );
   return JSON.parse(res.body);
 }
 
@@ -201,17 +214,21 @@ async function refreshToken(refresh_token, issuer) {
  * @returns {Object} Returns the Tesla server token response
  */
 async function ownerapiToken(bearerToken) {
-  const res = await request("https://owner-api.teslamotors.com/oauth/token", {
-    method: "POST",
-    headers: {
-      "Authorization": `Bearer ${bearerToken}`,
-      "Content-Type": "application/json"
-    }
-  }, JSON.stringify({
-    "grant_type": "urn:ietf:params:oauth:grant-type:jwt-bearer",
-    "client_id": "81527cff06843c8634fdc09e8ac0abefb46ac849f38fe1e431c2ef2106796384",
-    "client_secret": "c7257eb71a564034f9419ee651c7d0e5f7aa6bfbd18bafb5c5c033b093bb2fa3"
-  }));
+  const res = await request(
+    `${TESLA_OWNERAPI_URL}/token`,
+    {
+      method: "POST",
+      headers: {
+        "Authorization": `Bearer ${bearerToken}`,
+        "Content-Type": "application/json"
+      }
+    },
+    JSON.stringify({
+      "grant_type": "urn:ietf:params:oauth:grant-type:jwt-bearer",
+      "client_id": TESLA_OWNERAPI_CLIENT_ID,
+      "client_secret": TESLA_OWNERAPI_CLIENT_SECRET
+    })
+  );
   return JSON.parse(res.body);
 }
 

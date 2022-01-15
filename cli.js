@@ -1,7 +1,7 @@
 /**
  * @file cli implementation to run teslaAuth.js
  * @author Fredrik Lidström
- * @copyright 2022 Fredrik Lidström
+ * @copyright 2019-2022 Fredrik Lidström
  * @license MIT (MIT)
 */
 

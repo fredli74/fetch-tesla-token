@@ -141,7 +141,7 @@
   <div id="error"></div>
 
   <p><strong>Why a server?</strong>
-    The Tesla API was only intended for the official Tesla App, therefore there are deliberate limitations that prevent
+    The Tesla APIs are only intended for the official Tesla App, therefore there are deliberate limitations that prevent
     the ease of use for third party solutions. One of those limitations is that <a
       href="https://developer.mozilla.org/en-US/docs/Web/HTTP/CORS">CORS</a> prevents any
     other domain than tesla.com to access the API directly from a browser. Calling the API from a node.js server works
@@ -197,6 +197,7 @@
       <p><strong>What is this?</strong>
         This is a simple node.js server for authenticating with the Tesla servers to obtain
         both bearer access and refresh tokens, as well as owner-api access tokens.</p>
+      
       <p><strong>How does it work?</strong>
         Tesla is constantly seeking ways to make their sign in more secure, and when they do, third party solutions tends to
         break. I finally came to the conclusion that the best way forward is to use the official sign in
@@ -208,7 +209,7 @@
         <li>Visit the link and sign in (do not close this window)
           <div id="signlink"><a href="${session.url}" target="_blank">${session.url}</a></div>
         <li>Once signed in, you are redirected to a page on tesla.com that does not exist. This is how Tesla uses it
-      internally and it is intentional.
+          internally and it is intentional.
         <li>Copy <strong>the full url</strong> <em>(https://auth.tesla.com/void/callback?code=...)</em> from your browser.
         <li>Come back to this window and paste the full url in the form field below
           <form id="form" action="" method="POST">
@@ -233,9 +234,8 @@
         event.preventDefault();
         clearError();
 
-        formData.url = elURL.value;
-
         try {
+          formData.url = elURL.value;
           const data = await rpc("/token", formData);
 
           const html = [];
