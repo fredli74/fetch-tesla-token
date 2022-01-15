@@ -14,14 +14,12 @@ async function main() {
     const teslaAuth = require("./teslaAuth");
 
     const session = teslaAuth.newSession();
-    console.log(
-        `Please copy and visit the URL below to start your Tesla SSO Authentication\n` +
-        `\n` +
-        `${session.url}\n` +
-        `\n` +
-        `Once Sign In is completed, copy the full landing page URL (https://auth.tesla.com/void/callback?code=...) and paste it below`
-    );
-
+    console.log(`Please copy and visit the URL below to start your Tesla SSO Authentication`)
+    console.log(``);
+    console.log(`${session.url}`);
+    console.log(``);
+    console.log(`Once Sign In is completed, copy the full landing page URL (https://auth.tesla.com/void/callback?code=...) and paste it below`);
+    
     readline.question("url: ", async (url) => {
         try {
             const response = teslaAuth.decodeCallbackURL(url);
@@ -29,11 +27,13 @@ async function main() {
                 console.error("Incorrect authentication response. State in requestion and authorization response do not match.");
             }
 
-            console.log(`\nCollecting bearer token`);
+            console.log(``);
+            console.log(`Collecting bearer token`);
             const bearer = await teslaAuth.bearerToken(response.code, session.codeVerifier, response.issuer);
             console.debug(bearer);
 
-            console.log(`\nCollecting Owner-API token`);
+            console.log(``);
+            console.log(`Collecting Owner-API token`);
             const ownerAPI = await teslaAuth.ownerapiToken(bearer.access_token);
             console.debug(ownerAPI);
 
