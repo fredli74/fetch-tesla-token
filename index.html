@@ -8,12 +8,13 @@
 
 <style>
   body {
-    font: 200 1em sans-serif;
+    font: 200 1rem sans-serif;
     color: #1b1919;
     background-color: #fdfdfd;
     max-width: 800px;
-    margin: 0 auto;
-    padding: 0 1em;
+    margin: 0 auto 4rem;
+    padding: 0 1rem;
+    text-align: center;
   }
 
   a {
@@ -22,21 +23,16 @@
     color: #2d2daf;
   }
 
-  body,
-  input {
-    text-align: center;
-  }
-
   p,
   li {
     text-align: left;
-    margin-bottom: 0.2em;
+    margin-bottom: 0.6rem;
   }
 
   form,
   button,
   .token {
-    margin-bottom: 1em;
+    margin-bottom: 2rem;
   }
 
   ul {
@@ -49,7 +45,7 @@
     background: #4747ad;
     border: none;
     color: white;
-    padding: 0.4em;
+    padding: 0.4rem;
     width: 150px;
     font-size: 17px;
   }
@@ -64,10 +60,10 @@
 
   input {
     display: block;
-    width: 400px;
-    font-size: 1em;
-    padding: 0.2em;
-    margin: 0.2em auto 1em;
+    width: 90%;
+    font-size: 1rem;
+    padding: 0.2rem;
+    margin: 1rem 0 1rem;
   }
 
   .token {
@@ -75,46 +71,49 @@
   }
 
   .token span {
-    font-size: 0.9em;
+    font-size: 0.9rem;
   }
 
-  .token input {
-    width: 90%;
-    font: 600 1.2em monospace;
-    padding: 0.6em;
-  }
-
+  .token input,
   .token textarea {
     display: block;
     width: 90%;
-    height: 12em;
-    margin: 0.2em auto 1em;
-    font: 600 0.9em monospace;
+    padding: 0.6rem;
+    margin: 0.2rem auto;
+  }
+
+  .token input {
+    font: 600 0.9rem monospace;
+  }
+
+  .token textarea {
+    font: 600 0.7rem monospace;
+    height: 10rem;
     white-space: normal;
     word-break: break-all;
   }
 
   .copybtn {
     margin: 0 4% 0 0;
-    padding: 0.2em 1em;
+    padding: 0.2rem 1rem;
     width: auto;
     position: absolute;
     right: 0;
     top: 0;
-    font-size: 0.9em;
+    font-size: 0.9rem;
   }
 
   #error>div {
     display: block;
-    margin: 2em;
+    margin: 2rem;
     border: 2px solid #e4d4cd;
     background-color: #f5ede7;
-    padding: 1em;
+    padding: 1rem;
     color: #a93600;
   }
 
   #dynamic {
-    margin: 4rem auto;
+    margin: 4rem auto 1rem;
   }
 
   #signlink {
@@ -135,10 +134,9 @@
   <div id="dynamic">
     Generating sign in link...
   </div>
+  <div id="error"></div>
 
   <hr>
-
-  <div id="error"></div>
 
   <p><strong>Why a server?</strong>
     The Tesla APIs are only intended for the official Tesla App, therefore there are deliberate limitations that prevent
@@ -148,7 +146,8 @@
     fine.</p>
 
   <p><strong>Is it safe?</strong>
-    Yes. But don't just trust my word, verify!
+    Yes. But don't just trust my word, verify!</p>
+
   <ul>
     <li>It's open source (<a href="https://github.com/fredli74/fetch-tesla-token">GitHub</a>)</li>
     <li><a href="https://github.com/fredli74/fetch-tesla-token#how-do-i-run-it-locally">Download and run locally</a>
@@ -157,7 +156,6 @@
     <li>Client is single html file (no third-party browser libraries)</li>
     <li>Small code base, review it all in minutes</li>
   </ul>
-  </p>
 
 </body>
 
@@ -206,14 +204,14 @@
         The drawback is that it requires an additional manual step by the user at the end.</p>
       <ol>
         <li>This server generates a random session id and creates a unique sign in link to tesla.com
-        <li>Visit the link and sign in (do not close this window)
+        <li>Visit the link and sign in <em>(do not close this window)</em>
           <div id="signlink"><a href="${session.url}" target="_blank">${session.url}</a></div>
         <li>Once signed in, you are redirected to a page on tesla.com that does not exist. This is how Tesla uses it
           internally and it is intentional.
         <li>Copy <strong>the full url</strong> <em>(https://auth.tesla.com/void/callback?code=...)</em> from your browser.
         <li>Come back to this window and paste the full url in the form field below
           <form id="form" action="" method="POST">
-            <input type="text" id="url" autocorrect="off" autocapitalize="none" placeholder="paste here" required>
+            <input type="url" id="url" autocorrect="off" autocapitalize="none" placeholder="paste here" required>
             <button type="submit" id="fetch">fetch tokens</button>
           </form>
       </ol>
