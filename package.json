@@ -4,7 +4,8 @@
   "description": "Simple node.js server for fetching Tesla tokens",
   "main": "server.js",
   "scripts": {
-    "start": "node server.js"
+    "start": "node server.js",
+    "cli": "node cli.js"
   },
   "engines": {
     "node": ">=12.0.0"

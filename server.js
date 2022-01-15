@@ -3,16 +3,14 @@
 /**
  * @file Server for local use
  * @author Fredrik Lidström
- * @copyright 2021 Fredrik Lidström
+ * @copyright 2019-2022 Fredrik Lidström
  * @license MIT (MIT)
 */
 
 const http = require("http");
 const fs = require("fs");
 const session = require("./functions/session");
-const captcha = require("./functions/captcha");
-const authenticate = require("./functions/authenticate");
-const validate = require("./functions/validate");
+const token = require("./functions/token");
 
 const PORT = Number(process.env["LISTEN_PORT"]) || 15198;
 const HOSTNAME = Number(process.env["LISTEN_HOST"]) || "";
@@ -34,23 +32,9 @@ http
           response.write(payload.body);
           response.end();
 
-        } else if (request.url === "/authenticate") {
+        } else if (request.url === "/token") {
           /** Tesla API Proxy function **/
-          const payload = await authenticate.handler({ body: inputBody });
-          response.writeHead(payload.statusCode, payload.headers);
-          response.write(payload.body);
-          response.end();
-
-        } else if (request.url === "/captcha") {
-          /** Tesla API Proxy function **/
-          const payload = await captcha.handler({ body: inputBody });
-          response.writeHead(payload.statusCode, payload.headers);
-          response.write(payload.body);
-          response.end();
-
-        } else if (request.url === "/validate") {
-          /** Tesla API Proxy function **/
-          const payload = await validate.handler({ body: inputBody });
+          const payload = await token.handler({ body: inputBody });
           response.writeHead(payload.statusCode, payload.headers);
           response.write(payload.body);
           response.end();
