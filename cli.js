@@ -32,11 +32,6 @@ async function main() {
             const bearer = await teslaAuth.bearerToken(response.code, session.codeVerifier, response.issuer);
             console.debug(bearer);
 
-            console.log(``);
-            console.log(`Collecting Owner-API token`);
-            const ownerAPI = await teslaAuth.ownerapiToken(bearer.access_token);
-            console.debug(ownerAPI);
-
             process.exit(0);
         } catch (error) {
             console.error(error.message);

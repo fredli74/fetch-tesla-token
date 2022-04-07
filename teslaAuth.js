@@ -9,9 +9,6 @@
 
 const TESLA_AUTH_BASE = `https://auth.tesla.com/oauth2/v3`;
 const TESLA_AUTH_REDIRECT = `https://auth.tesla.com/void/callback`;
-const TESLA_OWNERAPI_URL = "https://owner-api.teslamotors.com/oauth";
-const TESLA_OWNERAPI_CLIENT_ID = "81527cff06843c8634fdc09e8ac0abefb46ac849f38fe1e431c2ef2106796384";
-const TESLA_OWNERAPI_CLIENT_SECRET = "c7257eb71a564034f9419ee651c7d0e5f7aa6bfbd18bafb5c5c033b093bb2fa3";
 
 const { TRACE } = process.env;
 
@@ -207,37 +204,11 @@ async function refreshToken(refresh_token, issuer) {
   return JSON.parse(res.body);
 }
 
-/**
- * Exchange an authentication access_token for an owner-api access_token
- *
- * @param {string} bearerToken - bearerToken.access_token collected from bearerToken()
- * @returns {Object} Returns the Tesla server token response
- */
-async function ownerapiToken(bearerToken) {
-  const res = await request(
-    `${TESLA_OWNERAPI_URL}/token`,
-    {
-      method: "POST",
-      headers: {
-        "Authorization": `Bearer ${bearerToken}`,
-        "Content-Type": "application/json"
-      }
-    },
-    JSON.stringify({
-      "grant_type": "urn:ietf:params:oauth:grant-type:jwt-bearer",
-      "client_id": TESLA_OWNERAPI_CLIENT_ID,
-      "client_secret": TESLA_OWNERAPI_CLIENT_SECRET
-    })
-  );
-  return JSON.parse(res.body);
-}
-
 module.exports = {
   TeslaAuthException,
   TeslaAuthUnauthorized,
   newSession,
   decodeCallbackURL,
   bearerToken,
-  refreshToken,
-  ownerapiToken
+  refreshToken
 };
