@@ -103,22 +103,24 @@ function request(url, opt, data) {
  * @returns {Object} { url: string, state: string, codeVerifier: string, codeChallenge: string }
  */
 function newSession() {
-  // Generate a random state identifier string
-  const state = bufferBase64url(crypto.randomBytes(16));
-  // Generate a random code verifier string
+  // Generate a random state identifier string (10 bytes = 16 characters)
+  const state = bufferBase64url(crypto.randomBytes(10));
+  // Generate a random code verifier string (64 bytes = 86 characters)
   const codeVerifier = bufferBase64url(crypto.randomBytes(64));
   // SHA-256 hash the codeVerifier string
-  const hash = crypto.createHash("sha256").update(codeVerifier).digest("hex");
+  const hash = crypto.createHash("sha256").update(codeVerifier).digest();
   const codeChallenge = bufferBase64url(Buffer.from(hash));
   // Generate a Tesla SSO Sign In URL
   const url = `${TESLA_AUTH_BASE}/authorize?${new URLSearchParams({
     client_id: "ownerapi",
-    state: state,
     code_challenge: codeChallenge,
     code_challenge_method: "S256",
+    // locale: "en-US",
+    // prompt: "login",
     redirect_uri: TESLA_AUTH_REDIRECT,
     response_type: "code",
     scope: "openid email offline_access",
+    state: state,
   })}`;
   return { url, state, codeVerifier, codeChallenge };
 }
